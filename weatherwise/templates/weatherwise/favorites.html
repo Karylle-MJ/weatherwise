@@ -1,0 +1,681 @@
+{% extends 'base.html' %}
+
+{% block title %}Favorites - WeatherWise{% endblock %}
+
+{% block content %}
+<!-- Search Bar at Top -->
+<div class="search-bar-container">
+    <div class="search-box">
+        <input type="text" id="searchCity" placeholder="Search for a city to add...">
+        <button onclick="searchCity()">Search</button>
+    </div>
+</div>
+
+<div class="two-column-layout">
+    <!-- Left Column - Fixed/Sticky - Shows Latest Favorite -->
+    <div class="left-column">
+        <div class="sticky-content">
+            <div class="welcome-header">
+                <h1>⭐ Favorite Cities</h1>
+                <p>Manage your saved locations</p>
+            </div>
+
+            <!-- Latest Added Favorite City -->
+            <div id="latestFavoriteContainer">
+                {% if latest_favorite %}
+                <div class="latest-card">
+                    <div class="latest-header">
+                        <span class="latest-label">📌 Latest Added</span>
+                    </div>
+                    <div class="weather-preview">
+                        <div class="weather-preview-icon">🌤️</div>
+                        <div class="weather-preview-city">{{ latest_favorite.city_name }}</div>
+                        <div class="weather-preview-temp">
+                            {% if latest_favorite_weather %}
+                                {{ latest_favorite_weather.temperature|floatformat:0 }}°C
+                            {% else %}
+                                Loading...
+                            {% endif %}
+                        </div>
+                        <div class="weather-preview-desc">
+                            {% if latest_favorite_weather %}
+                                {{ latest_favorite_weather.description }}
+                            {% endif %}
+                        </div>
+                        <button class="view-btn" onclick="viewCity('{{ latest_favorite.city_name }}')">
+                            View Details →
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty-latest">
+                    <div class="empty-icon">⭐</div>
+                    <p>No favorites yet</p>
+                    <p class="empty-hint">Search for a city and click "Add to Favorites"</p>
+                    <p class="empty-hint">The first city you add will appear here!</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Search Result Preview (appears when searching) -->
+            <div id="searchPreview" style="display: none;">
+                <div class="result-card">
+                    <div class="result-header">
+                        <span class="result-label">🔍 Search Result</span>
+                        <button class="close-btn" onclick="closeSearchPreview()">✕</button>
+                    </div>
+                    <div id="searchWeatherDisplay"></div>
+                    <button id="addToFavoritesBtn" onclick="addSearchedCityToFavorites()" class="add-fav-btn">
+                        ⭐ Add to Favorites
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column - Scrollable Favorites List -->
+    <div class="right-column">
+        <div class="favorites-header">
+            <h3>📋 Your Favorites</h3>
+            <span class="favorites-count">{{ favorites|length }} cities</span>
+        </div>
+
+        <div id="favoritesList">
+            {% if favorites %}
+                {% for city in favorites %}
+                <div class="favorite-card" onclick="viewCity('{{ city.city }}')">
+                    <div class="favorite-info">
+                        <div class="favorite-icon">🌆</div>
+                        <div class="favorite-details">
+                            <div class="favorite-city">{{ city.city }}</div>
+                            <div class="favorite-country">{{ city.country }}</div>
+                        </div>
+                    </div>
+                    <div class="favorite-weather">
+                        <div class="favorite-temp">{{ city.temperature|floatformat:0 }}°C</div>
+                        <div class="favorite-desc">{{ city.description }}</div>
+                    </div>
+                    <button class="remove-btn" onclick="event.stopPropagation(); removeFavorite('{{ city.city }}', this)">
+                        ✕
+                    </button>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-favorites">
+                    <p>No favorites yet. Search for a city above!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Search Bar at Top */
+    .search-bar-container {
+        max-width: 1400px;
+        margin: 0 auto 24px auto;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: transparent;
+        padding: 10px 0;
+    }
+    
+    .search-box {
+        display: flex;
+        gap: 12px;
+    }
+    
+    .search-box input {
+        flex: 1;
+        padding: 14px 20px;
+        border: none;
+        border-radius: 30px;
+        font-size: 16px;
+        background: var(--card-bg);
+        backdrop-filter: blur(10px);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+    }
+    
+    .search-box input::placeholder {
+        color: var(--text-secondary);
+    }
+    
+    .search-box button {
+        padding: 14px 28px;
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 30px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .search-box button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Two Column Layout */
+    .two-column-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        max-width: 1400px;
+        margin: 0 auto;
+        align-items: start;
+    }
+    
+    /* Left Column - Fixed/Sticky */
+    .left-column {
+        position: sticky;
+        top: 100px;
+        height: fit-content;
+    }
+    
+    .sticky-content {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .welcome-header h1 {
+        font-size: 2rem;
+        margin-bottom: 8px;
+    }
+    
+    .welcome-header p {
+        color: var(--text-secondary);
+    }
+    
+    /* Latest Favorite Card */
+    .latest-card {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+        backdrop-filter: blur(10px);
+        border-radius: 24px;
+        padding: 24px;
+        border: 1px solid rgba(102, 126, 234, 0.3);
+    }
+    
+    .empty-latest {
+        background: var(--card-bg);
+        backdrop-filter: blur(10px);
+        border-radius: 24px;
+        padding: 40px 24px;
+        text-align: center;
+        border: 1px solid var(--border-color);
+    }
+    
+    .latest-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .latest-label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--primary);
+    }
+    
+    .latest-icon {
+        font-size: 1.2rem;
+    }
+    
+    .weather-preview {
+        text-align: center;
+    }
+    
+    .weather-preview-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+    }
+    
+    .weather-preview-city {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    
+    .weather-preview-temp {
+        font-size: 2rem;
+        font-weight: bold;
+        margin: 15px 0;
+    }
+    
+    .weather-preview-desc {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        text-transform: capitalize;
+        margin-bottom: 20px;
+    }
+    
+    .view-btn {
+        width: 100%;
+        padding: 12px;
+        background: rgba(102, 126, 234, 0.8);
+        color: white;
+        border: none;
+        border-radius: 25px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+    
+    .view-btn:hover {
+        background: var(--primary);
+        transform: translateY(-2px);
+    }
+    
+    /* Search Result Card */
+    .result-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(10px);
+        border-radius: 24px;
+        padding: 20px;
+    }
+    
+    .result-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .result-label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--primary);
+    }
+    
+    .close-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.2rem;
+        color: var(--text-secondary);
+        transition: color 0.2s;
+    }
+    
+    .close-btn:hover {
+        color: var(--danger);
+    }
+    
+    #searchWeatherDisplay {
+        margin-bottom: 20px;
+    }
+    
+    .add-fav-btn {
+        width: 100%;
+        padding: 12px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        border-radius: 16px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .add-fav-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Right Column - Scrollable */
+    .right-column {
+        max-height: calc(100vh - 150px);
+        overflow-y: auto;
+        padding-right: 8px;
+    }
+    
+    .right-column::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .right-column::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+    }
+    
+    .right-column::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.3);
+        border-radius: 10px;
+    }
+    
+    .right-column::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.5);
+    }
+    
+    .favorites-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .favorites-header h3 {
+        font-size: 1.2rem;
+    }
+    
+    .favorites-count {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        background: rgba(255,255,255,0.1);
+        padding: 4px 10px;
+        border-radius: 20px;
+    }
+    
+    .favorite-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--card-bg);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 16px 20px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: 1px solid var(--border-color);
+    }
+    
+    .favorite-card:hover {
+        transform: translateX(5px);
+        background: rgba(255,255,255,0.15);
+    }
+    
+    .favorite-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .favorite-icon {
+        font-size: 2rem;
+    }
+    
+    .favorite-city {
+        font-weight: 600;
+        font-size: 1rem;
+    }
+    
+    .favorite-country {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+    }
+    
+    .favorite-weather {
+        text-align: right;
+    }
+    
+    .favorite-temp {
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+    
+    .favorite-desc {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        text-transform: capitalize;
+    }
+    
+    .remove-btn {
+        background: rgba(245, 101, 101, 0.2);
+        color: #f56565;
+        border: none;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .remove-btn:hover {
+        background: #f56565;
+        color: white;
+        transform: scale(1.1);
+    }
+    
+    .empty-favorites {
+        text-align: center;
+        padding: 40px;
+        color: var(--text-secondary);
+    }
+    
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+    
+    .empty-hint {
+        font-size: 0.8rem;
+        margin-top: 8px;
+        opacity: 0.7;
+    }
+    
+    /* Toast Message */
+    .toast-message {
+        position: fixed;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 12px 24px;
+        border-radius: 30px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 2000;
+        animation: slideUp 0.3s ease, fadeOut 2s ease-in-out 1.7s forwards;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    .toast-success {
+        background: #48bb78;
+        color: white;
+    }
+    
+    .toast-warning {
+        background: #ed8936;
+        color: white;
+    }
+    
+    .toast-error {
+        background: #f56565;
+        color: white;
+    }
+    
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    }
+    
+    @keyframes fadeOut {
+        to {
+            opacity: 0;
+            visibility: hidden;
+        }
+    }
+    
+    /* Responsive */
+    @media (max-width: 900px) {
+        .two-column-layout {
+            grid-template-columns: 1fr;
+        }
+        
+        .left-column {
+            position: relative;
+            top: 0;
+        }
+        
+        .right-column {
+            max-height: none;
+            overflow-y: visible;
+        }
+    }
+</style>
+
+<script>
+    let searchedCityData = null;
+    let isAlreadyFavorite = false;
+    
+    function showToastMessage(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `toast-message toast-${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+    }
+    
+    function closeSearchPreview() {
+        document.getElementById('searchPreview').style.display = 'none';
+        searchedCityData = null;
+        isAlreadyFavorite = false;
+    }
+    
+async function searchCity() {
+    const city = document.getElementById('searchCity').value;
+    if (!city) return;
+    
+    // Hide latest favorite and show search preview
+    document.getElementById('latestFavoriteContainer').style.display = 'none';
+    
+    const searchPreview = document.getElementById('searchPreview');
+    const searchDisplay = document.getElementById('searchWeatherDisplay');
+    searchPreview.style.display = 'block';
+    searchDisplay.innerHTML = '<div style="text-align: center; padding: 20px;">Loading weather data...</div>';
+    
+    try {
+        // First, save to search history via POST
+        const saveResponse = await fetch('/api/weather/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ city: city })
+        });
+        
+        // Then get the weather data to display
+        const response = await fetch(`/api/weather/?city=${encodeURIComponent(city)}`);
+        const data = await response.json();
+        
+        if (data.city) {
+            // Check if city is already in favorites
+            const checkResponse = await fetch(`/api/favorites/check/?city=${encodeURIComponent(city)}`);
+            const checkData = await checkResponse.json();
+            isAlreadyFavorite = checkData.is_favorite;
+            
+            searchedCityData = data;
+            searchDisplay.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="font-size: 2.5rem;">🌤️</div>
+                    <h2>${data.city}, ${data.country}</h2>
+                    <div style="font-size: 2rem; font-weight: bold; margin: 10px 0;">
+                        ${Math.round(data.temperature)}°C
+                    </div>
+                    <p>${data.description}</p>
+                    <div style="display: flex; justify-content: center; gap: 20px; margin-top: 15px;">
+                        <div>💧 ${data.humidity}%</div>
+                        <div>🌬️ ${data.wind_speed} m/s</div>
+                    </div>
+                </div>
+            `;
+            
+            const addBtn = document.getElementById('addToFavoritesBtn');
+            if (isAlreadyFavorite) {
+                addBtn.textContent = '⚠️ Already in Favorites';
+                addBtn.style.opacity = '0.6';
+                addBtn.disabled = true;
+            } else {
+                addBtn.textContent = '⭐ Add to Favorites';
+                addBtn.style.opacity = '1';
+                addBtn.disabled = false;
+            }
+        } else {
+            searchDisplay.innerHTML = '<div style="color: red; text-align: center;">City not found. Please check spelling.</div>';
+        }
+    } catch (error) {
+        console.error('Search error:', error);
+        searchDisplay.innerHTML = '<div style="color: red; text-align: center;">Error fetching weather. Please try again.</div>';
+    }
+}
+    
+    async function addSearchedCityToFavorites() {
+    if (!searchedCityData) return;
+    if (isAlreadyFavorite) {
+        showToastMessage(`⚠️ ${searchedCityData.city} is already in your favorites!`, 'warning');
+        return;
+    }
+    
+    const btn = document.getElementById('addToFavoritesBtn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'Adding...';
+    btn.disabled = true;
+    
+    // Save to search history first
+    await fetch('/api/weather/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ city: searchedCityData.city })
+    });
+    
+    // Then add to favorites
+    const response = await fetch('/api/favorites/toggle/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ city: searchedCityData.city, country: searchedCityData.country })
+    });
+    const data = await response.json();
+    
+    if (data.status === 'added') {
+        showToastMessage(`✓ ${searchedCityData.city} added to favorites!`, 'success');
+        setTimeout(() => location.reload(), 1000);
+    } else {
+        showToastMessage('Error adding to favorites', 'error');
+    }
+    
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+}
+    
+    async function removeFavorite(city, btn) {
+        const response = await fetch('/api/favorites/toggle/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ city: city, country: '' })
+        });
+        const data = await response.json();
+        
+        if (data.status === 'removed') {
+            showToastMessage(`✗ ${city} removed from favorites`, 'success');
+            setTimeout(() => location.reload(), 500);
+        }
+    }
+    
+    function viewCity(city) {
+        window.location.href = `/?city=${encodeURIComponent(city)}`;
+    }
+    
+    document.getElementById('searchCity').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') searchCity();
+    });
+</script>
+{% endblock %}

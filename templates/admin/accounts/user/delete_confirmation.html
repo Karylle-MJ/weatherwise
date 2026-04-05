@@ -1,0 +1,23 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 50px auto;">
+    <div style="background: white; border-radius: 16px; padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+        <h1 style="color: #e53e3e; margin-bottom: 20px;">⚠️ Confirm Deletion</h1>
+        
+        <p>Are you sure you want to delete the user: <strong>{{ object.username }}</strong>?</p>
+        
+        <p style="color: #666; margin: 20px 0;">
+            This will permanently delete the user account.
+        </p>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div style="display: flex; gap: 15px; margin-top: 25px;">
+                <a href="{% url 'admin:auth_user_changelist' %}" style="background: #666; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px;">Cancel</a>
+                <button type="submit" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Yes, Delete User</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

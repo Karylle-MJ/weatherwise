@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>{% block title %}WeatherWise{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --card-bg: rgba(255, 255, 255, 0.1);
+            --text-color: #ffffff;
+            --text-secondary: #a0aec0;
+            --border-color: rgba(255, 255, 255, 0.2);
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --danger: #f56565;
+            --success: #48bb78;
+        }
+        
+        body.light-mode {
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --text-color: #1a1a2e;
+            --text-secondary: #666;
+            --border-color: rgba(0, 0, 0, 0.08);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            color: var(--text-color);
+            min-height: 100vh;
+            padding-bottom: 70px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        /* Dark Mode Cloud Background */
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        }
+        
+        /* Cloud Container */
+        .cloud-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        
+        /* Cloud Styles */
+        .cloud {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 1000px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+            animation: floatClouds linear infinite;
+        }
+        
+        .cloud::before,
+        .cloud::after {
+            content: '';
+            position: absolute;
+            background: inherit;
+            border-radius: 50%;
+        }
+        
+        .cloud::before {
+            width: 60%;
+            height: 60%;
+            top: -30%;
+            left: 10%;
+        }
+        
+        .cloud::after {
+            width: 40%;
+            height: 40%;
+            top: -20%;
+            right: 15%;
+        }
+        
+        /* Cloud Animations */
+        @keyframes floatClouds {
+            0% {
+                transform: translateX(-100px);
+            }
+            100% {
+                transform: translateX(calc(100vw + 200px));
+            }
+        }
+        
+        @keyframes floatCloudsReverse {
+            0% {
+                transform: translateX(calc(100vw + 200px));
+            }
+            100% {
+                transform: translateX(-100px);
+            }
+        }
+        
+        /* Individual Clouds - Dark Mode */
+        .cloud-1 { width: 120px; height: 70px; top: 10%; left: -100px; animation-duration: 30s; opacity: 0.4; }
+        .cloud-2 { width: 180px; height: 100px; top: 25%; left: -100px; animation-duration: 45s; opacity: 0.3; }
+        .cloud-3 { width: 90px; height: 50px; top: 45%; left: -100px; animation-duration: 35s; opacity: 0.35; }
+        .cloud-4 { width: 200px; height: 110px; top: 65%; left: -100px; animation-duration: 50s; opacity: 0.25; }
+        .cloud-5 { width: 140px; height: 80px; top: 80%; left: -100px; animation-duration: 40s; opacity: 0.3; }
+        .cloud-6 { width: 70px; height: 40px; top: 15%; right: -100px; animation-name: floatCloudsReverse; animation-duration: 35s; opacity: 0.35; }
+        .cloud-7 { width: 160px; height: 90px; top: 55%; right: -100px; animation-name: floatCloudsReverse; animation-duration: 42s; opacity: 0.3; }
+        
+        /* Light Mode Cloud Background */
+        body.light-mode {
+            background: linear-gradient(135deg, #87CEEB 0%, #B0E0E6 50%, #E0F7FA 100%);
+        }
+        
+        body.light-mode .cloud {
+            background: rgba(255, 255, 255, 0.7);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+        
+        body.light-mode .cloud-1 { opacity: 0.7; }
+        body.light-mode .cloud-2 { opacity: 0.6; }
+        body.light-mode .cloud-3 { opacity: 0.65; }
+        body.light-mode .cloud-4 { opacity: 0.55; }
+        body.light-mode .cloud-5 { opacity: 0.6; }
+        body.light-mode .cloud-6 { opacity: 0.65; }
+        body.light-mode .cloud-7 { opacity: 0.6; }
+        
+        /* Container - above clouds */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 10;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            border-top: 1px solid var(--border-color);
+            z-index: 1000;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text-secondary);
+            padding: 8px 20px;
+            border-radius: 25px;
+            transition: all 0.3s;
+        }
+        
+        .nav-item.active {
+            color: var(--primary);
+            background: rgba(102, 126, 234, 0.2);
+        }
+        
+        .nav-item:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+        
+        .nav-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+        
+        .nav-label {
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            transition: transform 0.3s ease;
+        }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--success);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            z-index: 2000;
+            animation: fadeOut 2s ease-in-out;
+        }
+        
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; visibility: hidden; }
+        }
+        /* Top Loading Progress Bar */
+            #loading-bar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 0%;
+                height: 3px;
+                background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+                z-index: 10000;
+                transition: width 0.3s ease;
+                box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+                border-radius: 0 2px 2px 0;
+            }
+
+            #loading-bar.complete {
+                width: 100% !important;
+                transition: width 0.2s ease;
+            }
+
+            #loading-bar.hide {
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container { padding: 15px; }
+            .nav-item { padding: 8px 12px; }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Top Loading Progress Bar -->
+    <div id="loading-bar"></div>
+
+    <!-- Cloud Background (No Sun/Moon) -->
+    <div class="cloud-bg">
+        <div class="cloud cloud-1"></div>
+        <div class="cloud cloud-2"></div>
+        <div class="cloud cloud-3"></div>
+        <div class="cloud cloud-4"></div>
+        <div class="cloud cloud-5"></div>
+        <div class="cloud cloud-6"></div>
+        <div class="cloud cloud-7"></div>
+    </div>
+    
+    <div class="container content-transition" id="mainContent">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="toast">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        
+        {% block content %}{% endblock %}
+    </div>
+    
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <a href="{% url 'weatherwise:home' %}" class="nav-item" id="navHome">
+            <span class="nav-icon">🌤️</span>
+            <span class="nav-label">Home</span>
+        </a>
+        <a href="{% url 'weatherwise:favorites' %}" class="nav-item" id="navFavorites">
+            <span class="nav-icon">⭐</span>
+            <span class="nav-label">Favorites</span>
+        </a>
+        <a href="{% url 'weatherwise:profile' %}" class="nav-item" id="navProfile">
+            <span class="nav-icon">👤</span>
+            <span class="nav-label">Profile</span>
+        </a>
+    </div>
+
+    <script>
+        function getCookie(name) {
+            let value = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        value = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return value;
+        }
+        
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.className = 'toast';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+        
+        window.showToast = showToast;
+        
+        // Theme handling
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        if (savedTheme === 'light') {
+            document.body.classList.add('light-mode');
+        }
+        
+        // Set active nav item based on current URL
+        function setActiveNav() {
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('.nav-item').forEach(nav => {
+                nav.classList.remove('active');
+                const href = nav.getAttribute('href');
+                if (href === currentPath || (currentPath === '/' && href === '/') || 
+                    (currentPath.includes('/home') && href === '/') ||
+                    (currentPath.includes('/favorites') && href.includes('/favorites')) ||
+                    (currentPath.includes('/profile') && href.includes('/profile'))) {
+                    nav.classList.add('active');
+                }
+            });
+        }
+        
+        setActiveNav();
+        // ==================== TOP LOADING PROGRESS BAR ====================
+        let loadingBar = document.getElementById('loading-bar');
+        let currentWidth = 0;
+        let interval = null;
+
+        function startLoadingBar() {
+            if (!loadingBar) return;
+            
+            loadingBar.classList.remove('hide', 'complete');
+            loadingBar.style.width = '0%';
+            loadingBar.style.opacity = '1';
+            currentWidth = 0;
+            
+            if (interval) clearInterval(interval);
+            
+            interval = setInterval(() => {
+                if (currentWidth < 90) {
+                    const increment = currentWidth < 30 ? 15 : (currentWidth < 60 ? 8 : 3);
+                    currentWidth = Math.min(currentWidth + increment, 90);
+                    loadingBar.style.width = currentWidth + '%';
+                }
+            }, 100);
+        }
+
+        function completeLoadingBar() {
+            if (!loadingBar) return;
+            
+            if (interval) {
+                clearInterval(interval);
+                interval = null;
+            }
+            
+            loadingBar.style.width = '100%';
+            loadingBar.classList.add('complete');
+            
+            setTimeout(() => {
+                loadingBar.classList.add('hide');
+                setTimeout(() => {
+                    if (loadingBar) {
+                        loadingBar.style.width = '0%';
+                        loadingBar.classList.remove('complete');
+                    }
+                }, 300);
+            }, 300);
+        }
+
+        // Handle all navigation clicks - show loading bar
+        document.querySelectorAll('.nav-item, a:not([target="_blank"]):not([href^="javascript:"])').forEach(link => {
+            link.addEventListener('click', function(e) {
+                const href = this.getAttribute('href');
+                if (!href || href === '#' || href.includes('logout')) return;
+                if (href.startsWith('javascript:')) return;
+                
+                startLoadingBar();
+            });
+        });
+
+        // Complete loading bar when page loads
+        window.addEventListener('load', function() {
+            completeLoadingBar();
+        });
+
+        // Also handle when user clicks browser back/forward
+        window.addEventListener('pageshow', function() {
+            completeLoadingBar();
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

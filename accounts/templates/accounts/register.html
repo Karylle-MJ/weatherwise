@@ -1,0 +1,55 @@
+{% extends 'auth_base.html' %}
+
+{% block title %}Register - WeatherWise{% endblock %}
+
+{% block content %}
+<h1 class="auth-title">Create Account ✨</h1>
+<p class="auth-subtitle">Join WeatherWise and never miss the weather!</p>
+
+<!-- Display single error message -->
+{% if messages %}
+    {% for message in messages %}
+        {% if forloop.first %}
+        <div class="error-message" style="background: #fed7d7; color: #742a2a; padding: 12px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #f56565;">
+            {{ message }}
+        </div>
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+    
+    <div class="form-group">
+        <label>Username</label>
+        <div class="input-group">
+            <span class="input-icon">👤</span>
+            <input type="text" name="username" class="form-control" placeholder="Choose a username" required>
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label>Password</label>
+        <div class="input-group">
+            <span class="input-icon">🔒</span>
+            <input type="password" name="password1" class="form-control" placeholder="Create a password" required>
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label>Confirm Password</label>
+        <div class="input-group">
+            <span class="input-icon">✓</span>
+            <input type="password" name="password2" class="form-control" placeholder="Confirm your password" required>
+        </div>
+    </div>
+    
+    <button type="submit" class="submit-btn">
+        Create Account →
+    </button>
+</form>
+
+<div class="auth-footer">
+    <p>Already have an account? <a href="{% url 'accounts:login' %}">Sign In</a></p>
+</div>
+{% endblock %}

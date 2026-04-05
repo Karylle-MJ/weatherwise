@@ -1,0 +1,582 @@
+{% extends 'base.html' %}
+
+{% block title %}Home - WeatherWise{% endblock %}
+
+{% block content %}
+<!-- Search Bar at Top -->
+<div class="search-bar-container">
+    <div class="search-box">
+        <input type="text" id="cityInput" placeholder="Search for a city...">
+        <button onclick="searchWeather()">Search</button>
+    </div>
+    <button id="locationBtn" onclick="getLocationWeather()" class="location-btn">
+        📍 Use My Location
+    </button>
+</div>
+
+<div class="two-column-layout">
+    <!-- Left Column - Fixed/Sticky Weather Display -->
+    <div class="left-column">
+        <div class="sticky-content">
+            <div class="welcome-header">
+                <h1>WeatherWise</h1>
+                <p>Your personal weather companion</p>
+            </div>
+
+            <!-- Skeleton Loader -->
+            <div id="skeletonLoader" style="display: none;">
+                <div class="skeleton-card">
+                    <div class="skeleton" style="height: 200px;"></div>
+                </div>
+            </div>
+
+            <!-- Weather Display -->
+            <div id="actualContent">
+                {% if weather_data and 'error' not in weather_data %}
+                <div class="weather-card">
+                    <div class="weather-header">
+                        <div>
+                            <h2>{{ weather_data.city }}, {{ weather_data.country }}</h2>
+                            <p class="weather-desc">{{ weather_data.description }}</p>
+                        </div>
+                        <button class="star-btn" onclick="toggleFavorite()">
+                            {% if is_favorite %}⭐{% else %}☆{% endif %}
+                        </button>
+                    </div>
+                    
+                    <div class="weather-temp">
+                        <span class="temp-value">{{ weather_data.temperature|floatformat:0 }}</span>
+                        <span class="temp-unit">°C</span>
+                    </div>
+                    
+                    <div class="weather-details">
+                        <div class="detail">
+                            <span class="detail-icon">💧</span>
+                            <div>
+                                <div class="detail-label">Humidity</div>
+                                <div class="detail-value">{{ weather_data.humidity }}%</div>
+                            </div>
+                        </div>
+                        <div class="detail">
+                            <span class="detail-icon">🌬️</span>
+                            <div>
+                                <div class="detail-label">Wind Speed</div>
+                                <div class="detail-value">{{ weather_data.wind_speed }} m/s</div>
+                            </div>
+                        </div>
+                        <div class="detail">
+                            <span class="detail-icon">🌡️</span>
+                            <div>
+                                <div class="detail-label">Feels Like</div>
+                                <div class="detail-value">{{ weather_data.feels_like|floatformat:0 }}°C</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% elif weather_data and 'error' in weather_data %}
+                <div class="error-card">
+                    {{ weather_data.error }}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    <h3>Search for a city</h3>
+                    <p>Enter a city name or use your current location</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column - Scrollable Forecast & Suggestions -->
+    <div class="right-column">
+        <!-- Hourly Forecast -->
+        <div class="forecast-card">
+            <h3>📅 Hourly Forecast</h3>
+            <div class="hourly-container">
+                {% if forecast_data and 'error' not in forecast_data %}
+                    {% for hour in forecast_data.hourly %}
+                    <div class="hourly-item">
+                        <div class="hourly-time">{{ hour.time }}</div>
+                        <div class="hourly-temp">{{ hour.temp }}°</div>
+                        <div class="hourly-icon">🌤️</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="placeholder-text">Search for a city to see hourly forecast</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 5-Day Forecast -->
+        <div class="forecast-card">
+            <h3>📅 5-Day Forecast</h3>
+            <div class="daily-container">
+                {% if forecast_data and 'error' not in forecast_data %}
+                    {% for day in forecast_data.daily %}
+                    <div class="daily-item">
+                        <div class="daily-day">{{ day.day_short }}</div>
+                        <div class="daily-date">{{ day.date }}</div>
+                        <div class="daily-temp">
+                            <span class="high">{{ day.high }}°</span>
+                            <span class="low">{{ day.low }}°</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="placeholder-text">Search for a city to see 5-day forecast</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Activity Suggestions -->
+        <div class="suggestions-card">
+            <h3>💡 Activity Suggestions</h3>
+            {% if suggestions %}
+                {% for s in suggestions %}
+                <div class="suggestion-item">
+                    <span class="suggestion-icon">{{ s.icon }}</span>
+                    <div>
+                        <div class="suggestion-title">{{ s.activity }}</div>
+                        <div class="suggestion-desc">{{ s.detail }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="placeholder-text">Search for a city to get activity suggestions</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Search Bar at Top */
+    .search-bar-container {
+        max-width: 1400px;
+        margin: 0 auto 24px auto;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: transparent;
+        padding: 10px 0;
+    }
+    
+    .search-box {
+        flex: 1;
+        display: flex;
+        gap: 12px;
+    }
+    
+    .search-box input {
+        flex: 1;
+        padding: 14px 20px;
+        border: none;
+        border-radius: 30px;
+        font-size: 16px;
+        background: var(--card-bg);
+        backdrop-filter: blur(10px);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+    }
+    
+    .search-box input::placeholder {
+        color: var(--text-secondary);
+    }
+    
+    .search-box button, .location-btn {
+        padding: 14px 28px;
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 30px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .search-box button:hover, .location-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .location-btn {
+        background: #48bb78;
+        white-space: nowrap;
+    }
+    
+    .location-btn:hover {
+        box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4);
+    }
+    
+    /* Two Column Layout */
+    .two-column-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        max-width: 1400px;
+        margin: 0 auto;
+        align-items: start;
+    }
+    
+    /* Left Column - Fixed/Sticky */
+    .left-column {
+        position: sticky;
+        top: 100px;
+        height: fit-content;
+    }
+    
+    .sticky-content {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    /* Right Column - Scrollable */
+    .right-column {
+        max-height: calc(100vh - 150px);
+        overflow-y: auto;
+        padding-right: 8px;
+    }
+    
+    /* Custom scrollbar for right column */
+    .right-column::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .right-column::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+    }
+    
+    .right-column::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.3);
+        border-radius: 10px;
+    }
+    
+    .right-column::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.5);
+    }
+    
+    .welcome-header h1 {
+        font-size: 2rem;
+        margin-bottom: 8px;
+    }
+    
+    .welcome-header p {
+        color: var(--text-secondary);
+    }
+    
+    .weather-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(10px);
+        border-radius: 28px;
+        padding: 28px;
+    }
+    
+    .weather-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+    }
+    
+    .weather-header h2 {
+        font-size: 1.5rem;
+    }
+    
+    .weather-desc {
+        color: var(--text-secondary);
+        text-transform: capitalize;
+        margin-top: 4px;
+    }
+    
+    .star-btn {
+        background: none;
+        border: none;
+        font-size: 28px;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    
+    .star-btn:hover {
+        transform: scale(1.1);
+    }
+    
+    .weather-temp {
+        text-align: center;
+        margin: 20px 0;
+    }
+    
+    .temp-value {
+        font-size: 5rem;
+        font-weight: 700;
+    }
+    
+    .temp-unit {
+        font-size: 1.5rem;
+        margin-left: 8px;
+    }
+    
+    .weather-details {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-top: 20px;
+    }
+    
+    .detail {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 16px;
+    }
+    
+    .detail-icon {
+        font-size: 1.5rem;
+    }
+    
+    .detail-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+    
+    .detail-value {
+        font-weight: 600;
+    }
+    
+    /* Right Column Cards */
+    .forecast-card, .suggestions-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(10px);
+        border-radius: 24px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .forecast-card:last-child, .suggestions-card:last-child {
+        margin-bottom: 0;
+    }
+    
+    .forecast-card h3, .suggestions-card h3 {
+        margin-bottom: 16px;
+        font-size: 1.1rem;
+    }
+    
+    .hourly-container {
+        display: flex;
+        gap: 16px;
+        overflow-x: auto;
+        padding-bottom: 8px;
+    }
+    
+    .hourly-item {
+        min-width: 70px;
+        text-align: center;
+        padding: 12px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 16px;
+    }
+    
+    .hourly-time {
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    
+    .hourly-temp {
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+    
+    .daily-container {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .daily-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 16px;
+    }
+    
+    .daily-day {
+        font-weight: 600;
+        width: 50px;
+    }
+    
+    .daily-date {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        flex: 1;
+    }
+    
+    .daily-temp {
+        display: flex;
+        gap: 12px;
+    }
+    
+    .high {
+        color: #f56565;
+    }
+    
+    .low {
+        color: #4299e1;
+    }
+    
+    .suggestion-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 16px;
+        margin-bottom: 8px;
+    }
+    
+    .suggestion-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .suggestion-icon {
+        font-size: 1.8rem;
+    }
+    
+    .suggestion-title {
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    
+    .suggestion-desc {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+    
+    .empty-state, .error-card, .placeholder-text {
+        text-align: center;
+        padding: 40px;
+        color: var(--text-secondary);
+    }
+    
+    .empty-icon {
+        font-size: 3rem;
+        margin-bottom: 16px;
+    }
+    
+    /* Responsive */
+    @media (max-width: 900px) {
+        .two-column-layout {
+            grid-template-columns: 1fr;
+        }
+        
+        .left-column {
+            position: relative;
+            top: 0;
+        }
+        
+        .right-column {
+            max-height: none;
+            overflow-y: visible;
+        }
+        
+        .search-bar-container {
+            flex-direction: column;
+        }
+        
+        .search-box {
+            width: 100%;
+        }
+        
+        .location-btn {
+            width: 100%;
+        }
+    }
+</style>
+
+<script>
+    let currentCity = "{% if weather_data %}{{ weather_data.city }}{% endif %}";
+    let currentCountry = "{% if weather_data %}{{ weather_data.country }}{% endif %}";
+    
+    function showSkeleton() {
+        document.getElementById('skeletonLoader').style.display = 'block';
+        document.getElementById('actualContent').style.display = 'none';
+    }
+    
+    function hideSkeleton() {
+        document.getElementById('skeletonLoader').style.display = 'none';
+        document.getElementById('actualContent').style.display = 'block';
+    }
+    
+    async function searchWeather() {
+        const city = document.getElementById('cityInput').value;
+        if (!city) return;
+        showSkeleton();
+        window.location.href = `/?city=${encodeURIComponent(city)}`;
+    }
+    
+    async function getLocationWeather() {
+        showSkeleton();
+        
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                async function(position) {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    
+                    try {
+                        const response = await fetch(`/api/weather/coordinates/?lat=${lat}&lon=${lon}`);
+                        const data = await response.json();
+                        
+                        if (data.city) {
+                            await fetch('/save-location/', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                                body: JSON.stringify({ city: data.city })
+                            });
+                            window.location.href = `/?city=${encodeURIComponent(data.city)}`;
+                        } else {
+                            hideSkeleton();
+                            alert('Could not get weather for your location');
+                        }
+                    } catch (error) {
+                        hideSkeleton();
+                        alert('Network error. Please try again.');
+                    }
+                },
+                function(error) {
+                    hideSkeleton();
+                    alert('Unable to get your location. Please search manually.');
+                }
+            );
+        } else {
+            hideSkeleton();
+            alert('Geolocation is not supported');
+        }
+    }
+    
+    async function toggleFavorite() {
+        if (!currentCity) return;
+        const starBtn = document.querySelector('.star-btn');
+        const wasFavorite = starBtn.textContent === '⭐';
+        starBtn.textContent = wasFavorite ? '☆' : '⭐';
+        
+        await fetch('/api/favorites/toggle/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ city: currentCity, country: currentCountry })
+        });
+    }
+    
+    document.getElementById('cityInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') searchWeather();
+    });
+</script>
+{% endblock %}

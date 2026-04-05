@@ -1,0 +1,468 @@
+{% extends 'base.html' %}
+
+{% block title %}Profile - WeatherWise{% endblock %}
+
+{% block content %}
+<div class="two-column-layout">
+    <!-- Left Column - Fixed/Sticky - Account & Settings -->
+    <div class="left-column">
+        <div class="sticky-content">
+            <!-- Account Section with Dark Mode Switch in Upper Right -->
+            <h1>👤 My Profile</h1>
+                <p>Manage your account and preferences</p>
+            <div class="profile-card">
+                <div class="card-header">
+                    <h3>Account</h3>
+                    <!-- Dark Mode Toggle - Sun/Moon Icons -->
+                    <div class="theme-switch-wrapper">
+                        <span class="theme-icon moon">🌙</span>
+                        <label class="theme-switch">
+                            <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="theme-icon sun">☀️</span>
+                    </div>
+                </div>
+                <div class="account-info">
+                    <div class="info-row">
+                        <span class="info-label">Username</span>
+                        <span class="info-value">{{ user.username }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Email</span>
+                        <span class="info-value">{{ user.email|default:"Not provided" }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Member since</span>
+                        <span class="info-value">{{ user.date_joined|date:"F j, Y" }}</span>
+                    </div>
+                </div>
+                <form method="post" action="{% url 'accounts:logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-btn">Logout</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column - Scrollable - Search History -->
+    <div class="right-column">
+        <div class="history-header">
+            <h3>📋 Search History</h3>
+            {% if search_history %}
+            <form method="post" action="{% url 'weatherwise:clear_history' %}" onsubmit="return confirm('Clear all history?')">
+                {% csrf_token %}
+                <button type="submit" class="clear-btn">Clear All</button>
+            </form>
+            {% endif %}
+        </div>
+
+        <div id="searchHistoryContainer">
+            {% if search_history %}
+                <div class="history-list">
+                    {% for search in search_history %}
+                    <div class="history-item {% if forloop.counter > 4 %}history-hidden{% endif %}" 
+                         onclick="window.location.href='/?city={{ search.city }}'">
+                        <div class="history-main">
+                            <div class="history-city">
+                                <span class="history-icon">🌆</span>
+                                <strong>{{ search.city }}, {{ search.country }}</strong>
+                            </div>
+                            <div class="history-temp">{{ search.temperature|floatformat:0 }}°C</div>
+                        </div>
+                        <div class="history-meta">
+                            <span>{{ search.description }}</span>
+                            <span>{{ search.searched_at|date:"M j, Y - g:i A" }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                {% if search_history|length > 4 %}
+                <div class="view-more-container">
+                    <button id="viewMoreBtn" class="view-more-btn" onclick="toggleHistory()">
+                        📋 View More ({{ search_history|length|add:"-4" }} more) ▼
+                    </button>
+                    <button id="viewLessBtn" class="view-less-btn" onclick="toggleHistory()" style="display: none;">
+                        📋 View Less ▲
+                    </button>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="empty-history">
+                    <div class="empty-icon">📭</div>
+                    <p>No search history yet</p>
+                    <p class="empty-hint">Search for a city to see it here!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .two-column-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        max-width: 1400px;
+        margin: 0 auto;
+        align-items: start;
+    }
+    
+    .left-column {
+        position: sticky;
+        top: 100px;
+        height: fit-content;
+    }
+    
+    .sticky-content {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    /* Profile Card with Header */
+    .profile-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(10px);
+        border-radius: 24px;
+        padding: 24px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .card-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+    }
+    
+    /* Theme Switch with Sun/Moon Icons */
+    .theme-switch-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .theme-icon {
+        font-size: 0.9rem;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+    
+    .theme-switch {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 24px;
+    }
+    
+    .theme-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #cbd5e0;
+        transition: 0.3s;
+        border-radius: 34px;
+    }
+    
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+    }
+    
+    input:checked + .slider {
+        background-color: #667eea;
+    }
+    
+    input:checked + .slider:before {
+        transform: translateX(20px);
+    }
+    
+    .account-info {
+        margin-bottom: 20px;
+    }
+    
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    
+    .info-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+    
+    .info-value {
+        font-weight: 500;
+    }
+    
+    .logout-btn {
+        width: 100%;
+        padding: 12px;
+        background: #f56565;
+        color: white;
+        border: none;
+        border-radius: 16px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .logout-btn:hover {
+        background: #e53e3e;
+        transform: translateY(-2px);
+    }
+    
+    /* Right Column - Scrollable */
+    .right-column {
+        max-height: calc(100vh - 150px);
+        overflow-y: auto;
+        padding-right: 8px;
+    }
+    
+    .right-column::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .right-column::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+    }
+    
+    .right-column::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.3);
+        border-radius: 10px;
+    }
+    
+    .history-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .history-header h3 {
+        font-size: 1.2rem;
+        margin: 0;
+    }
+    
+    .clear-btn {
+        background: #f56565;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.2s;
+    }
+    
+    .clear-btn:hover {
+        background: #e53e3e;
+        transform: scale(1.02);
+    }
+    
+    .history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .history-item {
+        background: var(--card-bg);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid var(--border-color);
+    }
+    
+    .history-item:hover {
+        transform: translateX(5px);
+        background: rgba(255,255,255,0.15);
+    }
+    
+    .history-hidden {
+        display: none;
+    }
+    
+    .history-main {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    
+    .history-city {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .history-icon {
+        font-size: 1.2rem;
+    }
+    
+    .history-temp {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    
+    .history-meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+    }
+    
+    /* Centered View More/Less Buttons */
+    .view-more-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 24px;
+        padding-top: 16px;
+    }
+    
+    .view-more-btn, .view-less-btn {
+        background: rgba(102, 126, 234, 0.15);
+        border: 1px solid rgba(102, 126, 234, 0.3);
+        color: #667eea;
+        cursor: pointer;
+        padding: 10px 28px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border-radius: 40px;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .view-more-btn:hover, .view-less-btn:hover {
+        background: rgba(102, 126, 234, 0.3);
+        transform: translateY(-2px);
+    }
+    
+    .empty-history {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-secondary);
+    }
+    
+    .empty-icon {
+        font-size: 3rem;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+    
+    .empty-hint {
+        font-size: 0.8rem;
+        margin-top: 8px;
+        opacity: 0.7;
+    }
+    
+    @media (max-width: 900px) {
+        .two-column-layout {
+            grid-template-columns: 1fr;
+        }
+        
+        .left-column {
+            position: relative;
+            top: 0;
+        }
+        
+        .right-column {
+            max-height: none;
+            overflow-y: visible;
+        }
+        
+        .card-header {
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+    }
+</style>
+
+<script>
+    function toggleHistory() {
+        const hiddenItems = document.querySelectorAll('.history-hidden');
+        const viewMoreBtn = document.getElementById('viewMoreBtn');
+        const viewLessBtn = document.getElementById('viewLessBtn');
+        
+        if (hiddenItems.length > 0 && hiddenItems[0].style.display === 'none') {
+            // Show all items
+            hiddenItems.forEach(item => {
+                item.style.display = 'block';
+            });
+            if (viewMoreBtn) viewMoreBtn.style.display = 'none';
+            if (viewLessBtn) viewLessBtn.style.display = 'inline-flex';
+        } else {
+            // Hide items beyond 4
+            hiddenItems.forEach(item => {
+                item.style.display = 'none';
+            });
+            if (viewMoreBtn) viewMoreBtn.style.display = 'inline-flex';
+            if (viewLessBtn) viewLessBtn.style.display = 'none';
+        }
+    }
+    
+    function toggleDarkMode() {
+        const isChecked = document.getElementById('darkModeToggle').checked;
+        
+        if (isChecked) {
+            document.body.classList.add('light-mode');
+            localStorage.setItem('theme', 'light');
+        } else {
+            document.body.classList.remove('light-mode');
+            localStorage.setItem('theme', 'dark');
+        }
+        
+        fetch('/api/save-theme/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ theme: isChecked ? 'light' : 'dark' })
+        }).catch(err => console.log('Theme save error:', err));
+    }
+    
+    window.addEventListener('DOMContentLoaded', function() {
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        const toggle = document.getElementById('darkModeToggle');
+        if (toggle) {
+            toggle.checked = savedTheme === 'light';
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-mode');
+            }
+        }
+    });
+</script>
+{% endblock %}
