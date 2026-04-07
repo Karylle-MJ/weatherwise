@@ -6,18 +6,17 @@
 <h1 class="auth-title">Create Account ✨</h1>
 <p class="auth-subtitle">Join WeatherWise and never miss the weather!</p>
 
-<!-- Display single error message -->
+<!-- Show error messages -->
 {% if messages %}
     {% for message in messages %}
-        {% if forloop.first %}
-        <div class="error-message" style="background: #fed7d7; color: #742a2a; padding: 12px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #f56565;">
+        <div class="error-message">
+            <strong>⚠️ Registration Failed</strong><br>
             {{ message }}
         </div>
-        {% endif %}
     {% endfor %}
 {% endif %}
 
-<form method="post">
+<form method="post" id="registerForm">
     {% csrf_token %}
     
     <div class="form-group">
@@ -30,18 +29,38 @@
     
     <div class="form-group">
         <label>Password</label>
-        <div class="input-group">
+        <div class="input-group password-group">
             <span class="input-icon">🔒</span>
-            <input type="password" name="password1" class="form-control" placeholder="Create a password" required>
+            <input type="password" name="password1" id="password1" class="form-control" placeholder="Create a password" required>
+            <button type="button" class="toggle-password" onclick="togglePassword('password1', this)">
+                <span class="eye-icon">👁️</span>
+            </button>
         </div>
+        {% if form.password1.errors %}
+            <div class="field-error">
+                {% for error in form.password1.errors %}
+                    {{ error }}
+                {% endfor %}
+            </div>
+        {% endif %}
     </div>
     
     <div class="form-group">
         <label>Confirm Password</label>
-        <div class="input-group">
+        <div class="input-group password-group">
             <span class="input-icon">✓</span>
-            <input type="password" name="password2" class="form-control" placeholder="Confirm your password" required>
+            <input type="password" name="password2" id="password2" class="form-control" placeholder="Confirm your password" required>
+            <button type="button" class="toggle-password" onclick="togglePassword('password2', this)">
+                <span class="eye-icon">👁️</span>
+            </button>
         </div>
+        {% if form.password2.errors %}
+            <div class="field-error">
+                {% for error in form.password2.errors %}
+                    {{ error }}
+                {% endfor %}
+            </div>
+        {% endif %}
     </div>
     
     <button type="submit" class="submit-btn">
@@ -52,4 +71,53 @@
 <div class="auth-footer">
     <p>Already have an account? <a href="{% url 'accounts:login' %}">Sign In</a></p>
 </div>
+
+<style>
+    .password-group {
+        position: relative;
+    }
+    
+    .toggle-password {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.2rem;
+        padding: 0;
+        color: #666;
+        transition: opacity 0.2s;
+    }
+    
+    .toggle-password:hover {
+        opacity: 0.7;
+    }
+    
+    .eye-icon {
+        font-size: 1.1rem;
+    }
+    
+    .field-error {
+        color: #e53e3e;
+        font-size: 0.8rem;
+        margin-top: 5px;
+    }
+</style>
+
+<script>
+    function togglePassword(inputId, button) {
+        const passwordInput = document.getElementById(inputId);
+        const eyeIcon = button.querySelector('.eye-icon');
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            eyeIcon.innerHTML = '🙈';
+        } else {
+            passwordInput.type = 'password';
+            eyeIcon.innerHTML = '👁️';
+        }
+    }
+</script>
 {% endblock %}

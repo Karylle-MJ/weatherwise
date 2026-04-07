@@ -18,12 +18,6 @@ class CustomLoginView(LoginView):
             return reverse('weatherwise:home')
     
     def form_invalid(self, form):
-        """Add single error message when login fails"""
-        # Clear any existing messages first
-        storage = messages.get_messages(self.request)
-        storage.used = True
-        
-        # Add single error message
         messages.error(self.request, 'Invalid username or password. Please try again.')
         return super().form_invalid(form)
 
@@ -38,19 +32,13 @@ def register(request):
             messages.success(request, 'Registration successful! Welcome to WeatherWise!')
             return redirect('weatherwise:home')
         else:
-            # Clear existing messages
-            storage = messages.get_messages(request)
-            storage.used = True
-            
-            # Add first error only
+            # Show first error only
             for field, errors in form.errors.items():
                 for error in errors:
-                    messages.error(request, f'{error}')
-                    break  # Only show first error
-                break  # Only show first field error
+                    messages.error(request, error)
+                    break
+                break
     else:
         form = UserCreationForm()
     
     return render(request, 'accounts/register.html', {'form': form})
-
-    
