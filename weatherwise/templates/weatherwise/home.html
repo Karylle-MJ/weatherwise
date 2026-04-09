@@ -19,7 +19,10 @@
     <div class="left-column">
         <div class="sticky-content">
             <div class="welcome-header">
-                <h1>WeatherWise</h1>
+                <div class="title-section">
+                    <h1>WeatherWise</h1>
+                    <div class="datetime-small" id="homeDateTime"></div>
+                </div>
                 <p>Your personal weather companion</p>
             </div>
 
@@ -99,7 +102,17 @@
                     <div class="hourly-item">
                         <div class="hourly-time">{{ hour.time }}</div>
                         <div class="hourly-temp">{{ hour.temp }}°</div>
-                        <div class="hourly-icon">🌤️</div>
+                        <div class="hourly-icon">
+                            {% if 'clear' in hour.description or 'sunny' in hour.description %}☀️
+                            {% elif 'few clouds' in hour.description %}🌤️
+                            {% elif 'scattered clouds' in hour.description %}⛅
+                            {% elif 'broken clouds' in hour.description or 'overcast' in hour.description %}☁️
+                            {% elif 'rain' in hour.description or 'drizzle' in hour.description %}🌧️
+                            {% elif 'thunderstorm' in hour.description %}⛈️
+                            {% elif 'snow' in hour.description %}❄️
+                            {% elif 'mist' in hour.description or 'fog' in hour.description %}🌫️
+                            {% else %}🌤️{% endif %}
+                        </div>
                     </div>
                     {% endfor %}
                 {% else %}
@@ -499,6 +512,30 @@
             width: 100%;
         }
     }
+
+        .title-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        flex-wrap: wrap;
+    gap: 10px;
+        }
+
+        .datetime-small {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-align: right;
+        }
+
+        @media (max-width: 600px) {
+            .title-section {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .datetime-small {
+                text-align: left;
+            }
+        }
 </style>
 
 <script>
@@ -563,20 +600,76 @@
     }
     
     async function toggleFavorite() {
-        if (!currentCity) return;
-        const starBtn = document.querySelector('.star-btn');
-        const wasFavorite = starBtn.textContent === '⭐';
-        starBtn.textContent = wasFavorite ? '☆' : '⭐';
-        
-        await fetch('/api/favorites/toggle/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-            body: JSON.stringify({ city: currentCity, country: currentCountry })
-        });
+    if (!currentCity) return;
+    const starBtn = document.querySelector('.star-btn');
+    const wasFavorite = starBtn.textContent === '⭐';
+    
+    // Optimistic update - change star immediately
+    if (wasFavorite) {
+        starBtn.textContent = '☆';
+        starBtn.style.color = '#cbd5e0';
+    } else {
+        starBtn.textContent = '⭐';
+        starBtn.style.color = '#fbbf24';
     }
     
-    document.getElementById('cityInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') searchWeather();
-    });
+    try {
+        const response = await fetch('/api/favorites/toggle/', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRFToken': getCookie('csrftoken') 
+            },
+            body: JSON.stringify({ city: currentCity, country: currentCountry })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'removed') {
+            showToast(`✗ ${currentCity} removed from favorites`, 'info');
+            // Update currentCity status for next toggle
+            wasFavorited = false;
+        } else if (data.status === 'added') {
+            showToast(`✓ ${currentCity} added to favorites!`, 'success');
+            // Update currentCity status for next toggle
+            wasFavorited = true;
+        }
+    } catch (error) {
+        // Revert on error
+        if (wasFavorite) {
+            starBtn.textContent = '⭐';
+            starBtn.style.color = '#fbbf24';
+        } else {
+            starBtn.textContent = '☆';
+            starBtn.style.color = '#cbd5e0';
+        }
+        showToast('Failed to update favorites', 'error');
+    }
+}
+
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+        background: ${type === 'success' ? '#48bb78' : (type === 'error' ? '#f56565' : '#4299e1')};
+        color: white; padding: 12px 24px; border-radius: 10px; z-index: 2000;
+        animation: fadeOut 2s ease-in-out; font-size: 14px;
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+}
+function updateSmallDateTime() {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateTimeElement = document.getElementById('homeDateTime');
+    if (dateTimeElement) {
+        dateTimeElement.textContent = `${dateStr} • ${timeStr}`;
+    }
+}
+
+updateSmallDateTime();
+setInterval(updateSmallDateTime, 60000); // Update every minute
 </script>
 {% endblock %}

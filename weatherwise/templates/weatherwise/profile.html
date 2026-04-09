@@ -3,17 +3,38 @@
 {% block title %}Profile - WeatherWise{% endblock %}
 
 {% block content %}
+
+<!-- Custom Clear History Modal -->
+<div id="clearHistoryModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center;">
+    <div style="background: var(--card-bg); backdrop-filter: blur(10px); border-radius: 24px; padding: 30px; max-width: 400px; width: 90%; text-align: center; border: 1px solid var(--border-color);">
+        <div style="font-size: 3rem; margin-bottom: 15px;">🗑️</div>
+        <h3 style="margin-bottom: 10px;">Clear Search History?</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 25px;">Are you sure you want to delete ALL your search history? This action cannot be undone.</p>
+        <div style="display: flex; gap: 15px;">
+            <button onclick="closeClearHistoryModal()" style="flex: 1; padding: 12px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; color: var(--text-color);">Cancel</button>
+            <button id="confirmClearBtn" style="flex: 1; padding: 12px; background: #f56565; color: white; border: none; border-radius: 12px; cursor: pointer;">Yes, Clear</button>
+        </div>
+    </div>
+</div>
+
 <div class="two-column-layout">
     <!-- Left Column - Fixed/Sticky - Account & Settings -->
     <div class="left-column">
         <div class="sticky-content">
-            <!-- Account Section with Dark Mode Switch in Upper Right -->
-            <h1>👤 My Profile</h1>
+            <!-- Welcome Header with Date/Time -->
+            <div class="welcome-header">
+                <div class="title-section">
+                    <h1>👤 My Profile</h1>
+                    <div class="datetime-small" id="profileDateTime"></div>
+                </div>
                 <p>Manage your account and preferences</p>
+            </div>
+
+            <!-- Account Section with Dark Mode Switch -->
             <div class="profile-card">
                 <div class="card-header">
                     <h3>Account</h3>
-                    <!-- Dark Mode Toggle - Sun/Moon Icons -->
+                    <!-- Dark Mode Toggle - Moon/Sun Icons -->
                     <div class="theme-switch-wrapper">
                         <span class="theme-icon moon">🌙</span>
                         <label class="theme-switch">
@@ -50,10 +71,7 @@
         <div class="history-header">
             <h3>📋 Search History</h3>
             {% if search_history %}
-            <form method="post" action="{% url 'weatherwise:clear_history' %}" onsubmit="return confirm('Clear all history?')">
-                {% csrf_token %}
-                <button type="submit" class="clear-btn">Clear All</button>
-            </form>
+            <button onclick="showClearHistoryModal()" class="clear-btn">Clear All</button>
             {% endif %}
         </div>
 
@@ -119,6 +137,38 @@
         display: flex;
         flex-direction: column;
         gap: 20px;
+    }
+    
+    /* Welcome Header with Date/Time */
+    .welcome-header {
+        margin-bottom: 0;
+    }
+    
+    .welcome-header h1 {
+        font-size: 2rem;
+        margin-bottom: 8px;
+    }
+    
+    .welcome-header p {
+        color: var(--text-secondary);
+    }
+    
+    .title-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 10px;
+        width: 100%;
+    }
+    
+    .datetime-small {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        background: rgba(255,255,255,0.1);
+        padding: 4px 10px;
+        border-radius: 20px;
+        white-space: nowrap;
     }
     
     /* Profile Card with Header */
@@ -410,24 +460,47 @@
             flex-wrap: wrap;
             gap: 10px;
         }
+        
+        .title-section {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        
+        .datetime-small {
+            white-space: normal;
+            font-size: 0.7rem;
+        }
     }
 </style>
 
 <script>
+    // Small date/time for title
+    function updateProfileDateTime() {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const dateTimeElement = document.getElementById('profileDateTime');
+        if (dateTimeElement) {
+            dateTimeElement.textContent = `${dateStr} • ${timeStr}`;
+        }
+    }
+    
+    updateProfileDateTime();
+    setInterval(updateProfileDateTime, 60000);
+    
     function toggleHistory() {
         const hiddenItems = document.querySelectorAll('.history-hidden');
         const viewMoreBtn = document.getElementById('viewMoreBtn');
         const viewLessBtn = document.getElementById('viewLessBtn');
         
         if (hiddenItems.length > 0 && hiddenItems[0].style.display === 'none') {
-            // Show all items
             hiddenItems.forEach(item => {
                 item.style.display = 'block';
             });
             if (viewMoreBtn) viewMoreBtn.style.display = 'none';
             if (viewLessBtn) viewLessBtn.style.display = 'inline-flex';
         } else {
-            // Hide items beyond 4
             hiddenItems.forEach(item => {
                 item.style.display = 'none';
             });
@@ -462,6 +535,49 @@
             if (savedTheme === 'light') {
                 document.body.classList.add('light-mode');
             }
+        }
+    });
+    
+    // Clear History Modal Functions
+    function showClearHistoryModal() {
+        const modal = document.getElementById('clearHistoryModal');
+        if (modal) {
+            modal.style.display = 'flex';
+        }
+    }
+
+    function closeClearHistoryModal() {
+        const modal = document.getElementById('clearHistoryModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    // Handle clear history with AJAX
+    document.addEventListener('DOMContentLoaded', function() {
+        const confirmBtn = document.getElementById('confirmClearBtn');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', async function() {
+                try {
+                    const response = await fetch('/clear-history/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        showToast('✓ Search history cleared successfully!', 'success');
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        showToast('Failed to clear history', 'error');
+                    }
+                } catch (error) {
+                    showToast('Error clearing history', 'error');
+                }
+                closeClearHistoryModal();
+            });
         }
     });
 </script>

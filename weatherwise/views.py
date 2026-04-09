@@ -39,7 +39,8 @@ def home(request):
             )
             suggestions = ActivityService.get_suggestions(
                 weather_data['description'],
-                weather_data['temperature']
+                weather_data['temperature'],
+                weather_data['city']
             )
             forecast_data = WeatherService.get_forecast_data(city_searched)
     

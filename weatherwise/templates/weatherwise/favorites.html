@@ -16,7 +16,10 @@
     <div class="left-column">
         <div class="sticky-content">
             <div class="welcome-header">
-                <h1>⭐ Favorite Cities</h1>
+                <div class="title-section">
+                    <h1>⭐ Favorite Cities</h1>
+                    <div class="datetime-small" id="favDateTime"></div>
+                </div>
                 <p>Manage your saved locations</p>
             </div>
 
@@ -28,7 +31,19 @@
                         <span class="latest-label">📌 Latest Added</span>
                     </div>
                     <div class="weather-preview">
-                        <div class="weather-preview-icon">🌤️</div>
+                        <div class="weather-preview-icon">
+                            {% if latest_favorite_weather %}
+                                {% if 'clear' in latest_favorite_weather.description or 'sunny' in latest_favorite_weather.description %}☀️
+                                {% elif 'few clouds' in latest_favorite_weather.description %}🌤️
+                                {% elif 'scattered clouds' in latest_favorite_weather.description %}⛅
+                                {% elif 'broken clouds' in latest_favorite_weather.description or 'overcast' in latest_favorite_weather.description %}☁️
+                                {% elif 'rain' in latest_favorite_weather.description or 'drizzle' in latest_favorite_weather.description %}🌧️
+                                {% elif 'thunderstorm' in latest_favorite_weather.description %}⛈️
+                                {% elif 'snow' in latest_favorite_weather.description %}❄️
+                                {% elif 'mist' in latest_favorite_weather.description or 'fog' in latest_favorite_weather.description %}🌫️
+                                {% else %}🌤️{% endif %}
+                            {% else %}🌤️{% endif %}
+                        </div>
                         <div class="weather-preview-city">{{ latest_favorite.city_name }}</div>
                         <div class="weather-preview-temp">
                             {% if latest_favorite_weather %}
@@ -94,6 +109,17 @@
                     <div class="favorite-weather">
                         <div class="favorite-temp">{{ city.temperature|floatformat:0 }}°C</div>
                         <div class="favorite-desc">{{ city.description }}</div>
+                        <div class="favorite-weather-icon">
+                            {% if 'clear' in city.description or 'sunny' in city.description %}☀️
+                            {% elif 'few clouds' in city.description %}🌤️
+                            {% elif 'scattered clouds' in city.description %}⛅
+                            {% elif 'broken clouds' in city.description or 'overcast' in city.description %}☁️
+                            {% elif 'rain' in city.description or 'drizzle' in city.description %}🌧️
+                            {% elif 'thunderstorm' in city.description %}⛈️
+                            {% elif 'snow' in city.description %}❄️
+                            {% elif 'mist' in city.description or 'fog' in city.description %}🌫️
+                            {% else %}🌤️{% endif %}
+                        </div>
                     </div>
                     <button class="remove-btn" onclick="event.stopPropagation(); removeFavorite('{{ city.city }}', this)">
                         ✕
@@ -282,7 +308,7 @@
     
     .result-header {
         display: flex;
-        justify-content: space-between;
+        justify-theme: space-between;
         align-items: center;
         margin-bottom: 15px;
         padding-bottom: 10px;
@@ -417,6 +443,9 @@
     
     .favorite-weather {
         text-align: right;
+        display: flex;
+        align-items: center;
+        gap: 12px;
     }
     
     .favorite-temp {
@@ -428,6 +457,10 @@
         font-size: 0.7rem;
         color: var(--text-secondary);
         text-transform: capitalize;
+    }
+    
+    .favorite-weather-icon {
+        font-size: 1.5rem;
     }
     
     .remove-btn {
@@ -533,12 +566,35 @@
             overflow-y: visible;
         }
     }
+    .title-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.datetime-small {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-align: right;
+}
+
+@media (max-width: 600px) {
+    .title-section {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .datetime-small {
+        text-align: left;
+    }
+}
 </style>
 
 <script>
     let searchedCityData = null;
     let isAlreadyFavorite = false;
-    
+
     function showToastMessage(message, type = 'success') {
         const toast = document.createElement('div');
         toast.className = `toast-message toast-${type}`;
@@ -546,116 +602,207 @@
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 2000);
     }
-    
+
     function closeSearchPreview() {
         document.getElementById('searchPreview').style.display = 'none';
         searchedCityData = null;
         isAlreadyFavorite = false;
     }
-    
-async function searchCity() {
-    const city = document.getElementById('searchCity').value;
-    if (!city) return;
-    
-    // Hide latest favorite and show search preview
-    document.getElementById('latestFavoriteContainer').style.display = 'none';
-    
-    const searchPreview = document.getElementById('searchPreview');
-    const searchDisplay = document.getElementById('searchWeatherDisplay');
-    searchPreview.style.display = 'block';
-    searchDisplay.innerHTML = '<div style="text-align: center; padding: 20px;">Loading weather data...</div>';
-    
-    try {
-        // First, save to search history via POST
-        const saveResponse = await fetch('/api/weather/', {
+
+    async function searchCity() {
+        const city = document.getElementById('searchCity').value;
+        if (!city) return;
+        
+        document.getElementById('latestFavoriteContainer').style.display = 'none';
+        
+        const searchPreview = document.getElementById('searchPreview');
+        const searchDisplay = document.getElementById('searchWeatherDisplay');
+        searchPreview.style.display = 'block';
+        searchDisplay.innerHTML = '<div style="text-align: center; padding: 20px;">Loading weather data...</div>';
+        
+        try {
+            await fetch('/api/weather/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({ city: city })
+            });
+            
+            const response = await fetch(`/api/weather/?city=${encodeURIComponent(city)}`);
+            const data = await response.json();
+            
+            if (data.city) {
+                const checkResponse = await fetch(`/api/favorites/check/?city=${encodeURIComponent(city)}`);
+                const checkData = await checkResponse.json();
+                isAlreadyFavorite = checkData.is_favorite;
+                
+                searchedCityData = data;
+                
+                let weatherIcon = '🌤️';
+                if (data.description.includes('clear') || data.description.includes('sunny')) weatherIcon = '☀️';
+                else if (data.description.includes('few clouds')) weatherIcon = '🌤️';
+                else if (data.description.includes('scattered clouds')) weatherIcon = '⛅';
+                else if (data.description.includes('broken clouds') || data.description.includes('overcast')) weatherIcon = '☁️';
+                else if (data.description.includes('rain') || data.description.includes('drizzle')) weatherIcon = '🌧️';
+                else if (data.description.includes('thunderstorm')) weatherIcon = '⛈️';
+                else if (data.description.includes('snow')) weatherIcon = '❄️';
+                else if (data.description.includes('mist') || data.description.includes('fog')) weatherIcon = '🌫️';
+                
+                searchDisplay.innerHTML = `
+                    <div style="text-align: center;">
+                        <div style="font-size: 2.5rem;">${weatherIcon}</div>
+                        <h2>${data.city}, ${data.country}</h2>
+                        <div style="font-size: 2rem; font-weight: bold; margin: 10px 0;">
+                            ${Math.round(data.temperature)}°C
+                        </div>
+                        <p>${data.description}</p>
+                        <div style="display: flex; justify-content: center; gap: 20px; margin-top: 15px;">
+                            <div>💧 ${data.humidity}%</div>
+                            <div>🌬️ ${data.wind_speed} m/s</div>
+                        </div>
+                    </div>
+                `;
+                
+                const addBtn = document.getElementById('addToFavoritesBtn');
+                if (isAlreadyFavorite) {
+                    addBtn.textContent = '⚠️ Already in Favorites';
+                    addBtn.style.opacity = '0.6';
+                    addBtn.disabled = true;
+                } else {
+                    addBtn.textContent = '⭐ Add to Favorites';
+                    addBtn.style.opacity = '1';
+                    addBtn.disabled = false;
+                }
+            } else {
+                searchDisplay.innerHTML = '<div style="color: red; text-align: center;">City not found. Please check spelling.</div>';
+            }
+        } catch (error) {
+            console.error('Search error:', error);
+            searchDisplay.innerHTML = '<div style="color: red; text-align: center;">Error fetching weather. Please try again.</div>';
+        }
+    }
+
+    async function addSearchedCityToFavorites() {
+        if (!searchedCityData) return;
+        if (isAlreadyFavorite) {
+            showToastMessage(`⚠️ ${searchedCityData.city} is already in your favorites!`, 'warning');
+            return;
+        }
+        
+        const btn = document.getElementById('addToFavoritesBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = 'Adding...';
+        btn.disabled = true;
+        
+        await fetch('/api/weather/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-            body: JSON.stringify({ city: city })
+            body: JSON.stringify({ city: searchedCityData.city })
         });
         
-        // Then get the weather data to display
-        const response = await fetch(`/api/weather/?city=${encodeURIComponent(city)}`);
+        const response = await fetch('/api/favorites/toggle/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ city: searchedCityData.city, country: searchedCityData.country })
+        });
         const data = await response.json();
         
-        if (data.city) {
-            // Check if city is already in favorites
-            const checkResponse = await fetch(`/api/favorites/check/?city=${encodeURIComponent(city)}`);
-            const checkData = await checkResponse.json();
-            isAlreadyFavorite = checkData.is_favorite;
-            
-            searchedCityData = data;
-            searchDisplay.innerHTML = `
-                <div style="text-align: center;">
-                    <div style="font-size: 2.5rem;">🌤️</div>
-                    <h2>${data.city}, ${data.country}</h2>
-                    <div style="font-size: 2rem; font-weight: bold; margin: 10px 0;">
-                        ${Math.round(data.temperature)}°C
-                    </div>
-                    <p>${data.description}</p>
-                    <div style="display: flex; justify-content: center; gap: 20px; margin-top: 15px;">
-                        <div>💧 ${data.humidity}%</div>
-                        <div>🌬️ ${data.wind_speed} m/s</div>
-                    </div>
-                </div>
-            `;
-            
-            const addBtn = document.getElementById('addToFavoritesBtn');
-            if (isAlreadyFavorite) {
-                addBtn.textContent = '⚠️ Already in Favorites';
-                addBtn.style.opacity = '0.6';
-                addBtn.disabled = true;
-            } else {
-                addBtn.textContent = '⭐ Add to Favorites';
-                addBtn.style.opacity = '1';
-                addBtn.disabled = false;
-            }
+        if (data.status === 'added') {
+            addFavoriteToList(searchedCityData);
+            updateLatestFavorite(searchedCityData);
+            updateFavoritesCount();
+            closeSearchPreview();
+            document.getElementById('searchCity').value = '';
+            showToastMessage(`✓ ${searchedCityData.city} added to favorites!`, 'success');
         } else {
-            searchDisplay.innerHTML = '<div style="color: red; text-align: center;">City not found. Please check spelling.</div>';
+            showToastMessage('Error adding to favorites', 'error');
         }
-    } catch (error) {
-        console.error('Search error:', error);
-        searchDisplay.innerHTML = '<div style="color: red; text-align: center;">Error fetching weather. Please try again.</div>';
+        
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     }
-}
-    
-    async function addSearchedCityToFavorites() {
-    if (!searchedCityData) return;
-    if (isAlreadyFavorite) {
-        showToastMessage(`⚠️ ${searchedCityData.city} is already in your favorites!`, 'warning');
-        return;
+
+    function addFavoriteToList(cityData) {
+        const favoritesList = document.getElementById('favoritesList');
+        const emptyMessage = favoritesList.querySelector('.empty-favorites');
+        
+        if (emptyMessage) {
+            emptyMessage.remove();
+        }
+        
+        let weatherIcon = '🌤️';
+        if (cityData.description.includes('clear') || cityData.description.includes('sunny')) weatherIcon = '☀️';
+        else if (cityData.description.includes('few clouds')) weatherIcon = '🌤️';
+        else if (cityData.description.includes('scattered clouds')) weatherIcon = '⛅';
+        else if (cityData.description.includes('broken clouds') || cityData.description.includes('overcast')) weatherIcon = '☁️';
+        else if (cityData.description.includes('rain') || cityData.description.includes('drizzle')) weatherIcon = '🌧️';
+        else if (cityData.description.includes('thunderstorm')) weatherIcon = '⛈️';
+        else if (cityData.description.includes('snow')) weatherIcon = '❄️';
+        else if (cityData.description.includes('mist') || cityData.description.includes('fog')) weatherIcon = '🌫️';
+        
+        const newCard = document.createElement('div');
+        newCard.className = 'favorite-card';
+        newCard.style.cursor = 'pointer';
+        newCard.onclick = function() { viewCity(cityData.city); };
+        newCard.innerHTML = `
+            <div class="favorite-info">
+                <div class="favorite-icon">🌆</div>
+                <div class="favorite-details">
+                    <div class="favorite-city">${escapeHtml(cityData.city)}</div>
+                    <div class="favorite-country">${escapeHtml(cityData.country || '')}</div>
+                </div>
+            </div>
+            <div class="favorite-weather">
+                <div class="favorite-temp">${Math.round(cityData.temperature)}°C</div>
+                <div class="favorite-desc">${escapeHtml(cityData.description || '')}</div>
+                <div class="favorite-weather-icon">${weatherIcon}</div>
+            </div>
+            <button class="remove-btn" onclick="event.stopPropagation(); removeFavorite('${escapeHtml(cityData.city)}', this)">
+                ✕
+            </button>
+        `;
+        
+        favoritesList.insertBefore(newCard, favoritesList.firstChild);
     }
-    
-    const btn = document.getElementById('addToFavoritesBtn');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = 'Adding...';
-    btn.disabled = true;
-    
-    // Save to search history first
-    await fetch('/api/weather/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-        body: JSON.stringify({ city: searchedCityData.city })
-    });
-    
-    // Then add to favorites
-    const response = await fetch('/api/favorites/toggle/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-        body: JSON.stringify({ city: searchedCityData.city, country: searchedCityData.country })
-    });
-    const data = await response.json();
-    
-    if (data.status === 'added') {
-        showToastMessage(`✓ ${searchedCityData.city} added to favorites!`, 'success');
-        setTimeout(() => location.reload(), 1000);
-    } else {
-        showToastMessage('Error adding to favorites', 'error');
+
+    function updateLatestFavorite(cityData) {
+        const latestContainer = document.getElementById('latestFavoriteContainer');
+        
+        let weatherIcon = '🌤️';
+        if (cityData.description.includes('clear') || cityData.description.includes('sunny')) weatherIcon = '☀️';
+        else if (cityData.description.includes('few clouds')) weatherIcon = '🌤️';
+        else if (cityData.description.includes('scattered clouds')) weatherIcon = '⛅';
+        else if (cityData.description.includes('broken clouds') || cityData.description.includes('overcast')) weatherIcon = '☁️';
+        else if (cityData.description.includes('rain') || cityData.description.includes('drizzle')) weatherIcon = '🌧️';
+        else if (cityData.description.includes('thunderstorm')) weatherIcon = '⛈️';
+        else if (cityData.description.includes('snow')) weatherIcon = '❄️';
+        else if (cityData.description.includes('mist') || cityData.description.includes('fog')) weatherIcon = '🌫️';
+        
+        latestContainer.innerHTML = `
+            <div class="latest-card">
+                <div class="latest-header">
+                    <span class="latest-label">📌 Latest Added</span>
+                </div>
+                <div class="weather-preview">
+                    <div class="weather-preview-icon">${weatherIcon}</div>
+                    <div class="weather-preview-city">${escapeHtml(cityData.city)}</div>
+                    <div class="weather-preview-temp">${Math.round(cityData.temperature)}°C</div>
+                    <div class="weather-preview-desc">${escapeHtml(cityData.description)}</div>
+                    <button class="view-btn" onclick="viewCity('${escapeHtml(cityData.city)}')">
+                        View Details →
+                    </button>
+                </div>
+            </div>
+        `;
     }
-    
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-}
-    
+
+    function updateFavoritesCount() {
+        const countSpan = document.querySelector('.favorites-count');
+        const currentCards = document.querySelectorAll('.favorite-card').length;
+        if (countSpan) {
+            countSpan.textContent = `${currentCards} cities`;
+        }
+    }
+
     async function removeFavorite(city, btn) {
         const response = await fetch('/api/favorites/toggle/', {
             method: 'POST',
@@ -665,17 +812,72 @@ async function searchCity() {
         const data = await response.json();
         
         if (data.status === 'removed') {
-            showToastMessage(`✗ ${city} removed from favorites`, 'success');
-            setTimeout(() => location.reload(), 500);
+            const card = btn.closest('.favorite-card');
+            card.style.opacity = '0';
+            card.style.transform = 'translateX(-20px)';
+            
+            setTimeout(() => {
+                card.remove();
+                updateFavoritesCount();
+                showToastMessage(`✗ ${city} removed from favorites`, 'success');
+                
+                const remainingCards = document.querySelectorAll('.favorite-card').length;
+                if (remainingCards === 0) {
+                    const favoritesList = document.getElementById('favoritesList');
+                    favoritesList.innerHTML = '<div class="empty-favorites"><p>No favorites yet. Search for a city above!</p></div>';
+                    document.getElementById('latestFavoriteContainer').innerHTML = `
+                        <div class="empty-latest">
+                            <div class="empty-icon">⭐</div>
+                            <p>No favorites yet</p>
+                            <p class="empty-hint">Search for a city and click "Add to Favorites"</p>
+                            <p class="empty-hint">The first city you add will appear here!</p>
+                        </div>
+                    `;
+                } else {
+                    const firstCard = document.querySelector('.favorite-card');
+                    if (firstCard) {
+                        const cityName = firstCard.querySelector('.favorite-city').textContent;
+                        fetch(`/api/weather/?city=${encodeURIComponent(cityName)}`)
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data.city) {
+                                    updateLatestFavorite(data);
+                                }
+                            });
+                    }
+                }
+            }, 200);
         }
     }
-    
+
     function viewCity(city) {
         window.location.href = `/?city=${encodeURIComponent(city)}`;
     }
-    
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
     document.getElementById('searchCity').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') searchCity();
     });
+    function updateSmallDateTime() {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateTimeElement = document.getElementById('favDateTime');
+    if (dateTimeElement) {
+        dateTimeElement.textContent = `${dateStr} • ${timeStr}`;
+    }
+}
+
+updateSmallDateTime();
+setInterval(updateSmallDateTime, 60000); // Update every minute
 </script>
 {% endblock %}
