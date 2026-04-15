@@ -17,4 +17,8 @@ urlpatterns = [
     path('api/favorites/toggle/', views.toggle_favorite, name='toggle_favorite'),
     path('api/favorites/check/', views.check_favorite, name='check_favorite'),
     path('api/save-theme/', views.save_theme, name='save_theme'),
+    path('api/favorite-activity/', views.favorite_activity_api, name='favorite_activity_api'),
+    path('api/get-favorite-activity/', views.get_favorite_activity_api, name='get_favorite_activity_api'),
+    path('api/toggle-hearted/', views.toggle_hearted_activity, name='toggle_hearted'),
+    path('api/get-hearted/', views.get_hearted_activities, name='get_hearted'), 
 ]

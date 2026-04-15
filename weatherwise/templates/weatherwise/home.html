@@ -145,19 +145,28 @@
         <!-- Activity Suggestions -->
         <div class="suggestions-card">
             <h3>💡 Activity Suggestions</h3>
-            {% if suggestions %}
-                {% for s in suggestions %}
-                <div class="suggestion-item">
-                    <span class="suggestion-icon">{{ s.icon }}</span>
-                    <div>
-                        <div class="suggestion-title">{{ s.activity }}</div>
-                        <div class="suggestion-desc">{{ s.detail }}</div>
+            <div id="suggestionsList">
+                {% if suggestions %}
+                    {% for s in suggestions %}
+                    <div class="suggestion-item" data-activity="{{ s.activity }}" data-detail="{{ s.detail }}" data-icon="{{ s.icon }}">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span class="suggestion-icon">{{ s.icon }}</span>
+                                <div>
+                                    <div class="suggestion-title">{{ s.activity }}</div>
+                                    <div class="suggestion-desc">{{ s.detail }}</div>
+                                </div>
+                            </div>
+                            <button class="heart-activity-btn" onclick="toggleHeartActivity(this, '{{ s.activity|escapejs }}', '{{ s.detail|escapejs }}', '{{ s.icon }}')">
+                                ♡
+                            </button>
+                        </div>
                     </div>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="placeholder-text">Search for a city to get activity suggestions</div>
-            {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div class="placeholder-text">Search for a city to get activity suggestions</div>
+                {% endif %}
+            </div>
         </div>
     </div>
 </div>
@@ -536,6 +545,22 @@
                 text-align: left;
             }
         }
+        .heart-activity-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            transition: transform 0.2s, color 0.2s;
+            color: #cbd5e0;
+        }
+
+        .heart-activity-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .heart-activity-btn.active {
+            color: #f56565;
+        }
 </style>
 
 <script>
@@ -671,5 +696,99 @@ function updateSmallDateTime() {
 
 updateSmallDateTime();
 setInterval(updateSmallDateTime, 60000); // Update every minute
+
+// ==================== HEART ACTIVITIES (LocalStorage Only) ====================
+
+function getHeartedActivitiesKey(city) {
+    return `hearted_activities_${city}`;
+}
+
+async function toggleHeartActivity(btn, activity, detail, icon) {
+    const city = currentCity;
+    if (!city) {
+        showToast('No city selected', 'error');
+        return;
+    }
+    
+    const wasActive = btn.classList.contains('active');
+    
+    // Optimistic update
+    if (wasActive) {
+        btn.textContent = '♡';
+        btn.classList.remove('active');
+    } else {
+        btn.textContent = '❤️';
+        btn.classList.add('active');
+    }
+    
+    try {
+        const response = await fetch('/api/toggle-hearted/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                city: city,
+                country: currentCountry,
+                activity: activity,
+                detail: detail,
+                icon: icon
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'added') {
+            showToast(`❤️ Added "${activity}" to favorites!`, 'success');
+        } else if (data.status === 'removed') {
+            showToast(`Removed "${activity}" from favorites`, 'info');
+        }
+    } catch (error) {
+        // Revert on error
+        if (wasActive) {
+            btn.textContent = '❤️';
+            btn.classList.add('active');
+        } else {
+            btn.textContent = '♡';
+            btn.classList.remove('active');
+        }
+        showToast('Failed to update', 'error');
+    }
+}
+async function loadHeartStatus() {
+    const city = currentCity;
+    if (!city) return;
+    
+    try {
+        const response = await fetch('/api/get-hearted/');
+        const data = await response.json();
+        const heartedActivities = data.activities.filter(a => a.city === city);
+        
+        const heartButtons = document.querySelectorAll('.heart-activity-btn');
+        heartButtons.forEach(btn => {
+            const activity = btn.getAttribute('data-activity');
+            if (heartedActivities.some(a => a.activity === activity)) {
+                btn.textContent = '❤️';
+                btn.classList.add('active');
+            } else {
+                btn.textContent = '♡';
+                btn.classList.remove('active');
+            }
+        });
+    } catch (error) {
+        console.error('Error loading heart status:', error);
+    }
+}
+
+// Call this after weather loads
+if (currentCity) {
+    loadHeartStatus();
+}
+document.getElementById('cityInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        searchWeather();
+    }
+});
 </script>
 {% endblock %}

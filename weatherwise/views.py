@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from .models import WeatherSearch
 from .weather_service import WeatherService
 from .activity_service import ActivityService
-from accounts.models import UserProfile, FavoriteCity
+from accounts.models import UserProfile, FavoriteCity, UserFavoriteActivity, HeartedActivity
 from .cache_service import CacheService
 
 # ==================== PAGE VIEWS ====================
@@ -278,3 +278,106 @@ def weather_api(request):
         print(f"Serializer errors: {serializer.errors}")
         return Response({'status': 'error', 'errors': serializer.errors},
                         status=status.HTTP_400_BAD_REQUEST)
+
+@login_required
+def favorite_activity_api(request):
+    """Save or update favorite activity for a city"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            city = data.get('city')
+            country = data.get('country', '')
+            activity_note = data.get('activity_note', '')
+            
+            favorite_activity, created = UserFavoriteActivity.objects.update_or_create(
+                user=request.user,
+                city_name=city,
+                defaults={
+                    'country': country,
+                    'activity_note': activity_note
+                }
+            )
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Favorite activity saved!',
+                'created': created
+            })
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+@login_required
+def get_favorite_activity_api(request):
+    """Get favorite activity for a city"""
+    city = request.GET.get('city')
+    if not city:
+        return JsonResponse({'status': 'error', 'message': 'City required'}, status=400)
+    
+    try:
+        favorite_activity = UserFavoriteActivity.objects.get(
+            user=request.user,
+            city_name=city
+        )
+        return JsonResponse({
+            'status': 'success',
+            'activity_note': favorite_activity.activity_note,
+            'city': favorite_activity.city_name,
+            'country': favorite_activity.country
+        })
+    except UserFavoriteActivity.DoesNotExist:
+        return JsonResponse({'status': 'success', 'activity_note': ''})
+
+@login_required
+def toggle_hearted_activity(request):
+    """Save or remove hearted activity to database"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            city = data.get('city')
+            country = data.get('country', '')
+            activity = data.get('activity')
+            detail = data.get('detail', '')
+            icon = data.get('icon', '')
+            
+            # Check if already hearted
+            hearted = HeartedActivity.objects.filter(
+                user=request.user,
+                city=city,
+                activity=activity
+            ).first()
+            
+            if hearted:
+                hearted.delete()
+                return JsonResponse({'status': 'removed'})
+            else:
+                HeartedActivity.objects.create(
+                    user=request.user,
+                    city=city,
+                    country=country,
+                    activity=activity,
+                    detail=detail,
+                    icon=icon
+                )
+                return JsonResponse({'status': 'added'})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    
+    return JsonResponse({'error': 'Invalid request'}, status=400)
+
+@login_required
+def get_hearted_activities(request):
+    """Get all hearted activities for current user"""
+    activities = HeartedActivity.objects.filter(user=request.user)
+    data = []
+    for act in activities:
+        data.append({
+            'city': act.city,
+            'country': act.country,
+            'activity': act.activity,
+            'detail': act.detail,
+            'icon': act.icon,
+            'timestamp': act.created_at.timestamp()
+        })
+    return JsonResponse({'activities': data})

@@ -36,13 +36,6 @@
                 <span class="eye-icon">👁️</span>
             </button>
         </div>
-        {% if form.password1.errors %}
-            <div class="field-error">
-                {% for error in form.password1.errors %}
-                    {{ error }}
-                {% endfor %}
-            </div>
-        {% endif %}
     </div>
     
     <div class="form-group">
@@ -54,13 +47,6 @@
                 <span class="eye-icon">👁️</span>
             </button>
         </div>
-        {% if form.password2.errors %}
-            <div class="field-error">
-                {% for error in form.password2.errors %}
-                    {{ error }}
-                {% endfor %}
-            </div>
-        {% endif %}
     </div>
     
     <button type="submit" class="submit-btn">
@@ -98,18 +84,11 @@
     .eye-icon {
         font-size: 1.1rem;
     }
-    
-    .field-error {
-        color: #e53e3e;
-        font-size: 0.8rem;
-        margin-top: 5px;
-    }
-    
 </style>
 
 <script>
-    function togglePassword(inputId, button) {
-        const passwordInput = document.getElementById(inputId);
+    function togglePassword(fieldId, button) {
+        const passwordInput = document.getElementById(fieldId);
         const eyeIcon = button.querySelector('.eye-icon');
         
         if (passwordInput.type === 'password') {

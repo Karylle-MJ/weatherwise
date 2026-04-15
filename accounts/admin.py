@@ -1,9 +1,8 @@
 import pytz
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin, GroupAdmin
+from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User, Group
 from .models import UserProfile, FavoriteCity, UserActivity
-from django.utils import timezone
 
 # Remove the dashboard/header completely
 admin.site.site_header = "User Management"
@@ -11,17 +10,23 @@ admin.site.site_title = "User Management"
 admin.site.index_title = "Users"
 admin.site.unregister(Group)
 
-# Simple User Admin without any dashboard
-class SimpleUserAdmin(UserAdmin):
-    # Only show these columns
-    list_display = ['username', 'email', 'is_active']
-    list_filter = ['is_active']
+# Custom User Admin with local time display (MERGED both versions)
+class CustomUserAdmin(UserAdmin):
+    list_display = ['username', 'email', 'is_active', 'formatted_date_joined']
+    list_filter = ['is_active', 'date_joined']
     search_fields = ['username', 'email']
     
-    # Minimal fields
+    def formatted_date_joined(self, obj):
+        # Convert UTC to Asia/Manila timezone
+        manila_tz = pytz.timezone('Asia/Manila')
+        local_time = obj.date_joined.astimezone(manila_tz)
+        return local_time.strftime('%B %d, %Y - %I:%M:%S %p')
+    formatted_date_joined.short_description = 'Date Joined (PHT)'
+    
     fieldsets = (
         (None, {'fields': ('username', 'email', 'password')}),
-        ('Permissions', {'fields': ('is_active',)}),
+        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
     
     add_fieldsets = (
@@ -31,12 +36,12 @@ class SimpleUserAdmin(UserAdmin):
         }),
     )
     
-    # Remove all actions that show extra sections
+    readonly_fields = ['date_joined', 'last_login']
     actions = ['delete_selected']
 
-# Register User model
+# Register User model (ONCE)
 admin.site.unregister(User)
-admin.site.register(User, SimpleUserAdmin)
+admin.site.register(User, CustomUserAdmin)
 
 # Custom User Activity Admin - Only Login/Logout
 @admin.register(UserActivity)
@@ -53,7 +58,6 @@ class UserActivityAdmin(admin.ModelAdmin):
         local_time = obj.created_at.astimezone(manila_tz)
         return local_time.strftime('%B %d, %Y - %I:%M:%S %p')
     formatted_datetime.short_description = 'Date & Time (Philippines)'
-    
     
     # Only show login and logout activities
     def get_queryset(self, request):
@@ -75,8 +79,10 @@ class UserProfileAdmin(admin.ModelAdmin):
     readonly_fields = ['user', 'theme_preference', 'saved_location_city', 'created_at']
     
     def formatted_created_at(self, obj):
-        return obj.created_at.strftime('%B %d, %Y - %I:%M:%S %p')
-    formatted_created_at.short_description = 'Created At'
+        manila_tz = pytz.timezone('Asia/Manila')
+        local_time = obj.created_at.astimezone(manila_tz)
+        return local_time.strftime('%B %d, %Y - %I:%M:%S %p')
+    formatted_created_at.short_description = 'Created At (PHT)'
     
     def has_add_permission(self, request):
         return False
@@ -84,24 +90,21 @@ class UserProfileAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         return False
 
-# Custom User Admin
-class CustomUserAdmin(UserAdmin):
-    list_display = ['username', 'email', 'is_active', 'formatted_date_joined']
-    list_filter = ['is_active', 'date_joined']
-    search_fields = ['username', 'email']
+# Register FavoriteCity (readonly for admin)
+@admin.register(FavoriteCity)
+class FavoriteCityAdmin(admin.ModelAdmin):
+    list_display = ['user', 'city_name', 'formatted_added_at']
+    search_fields = ['user__username', 'city_name']
+    readonly_fields = ['user', 'city_name', 'country', 'added_at']
     
-    def formatted_date_joined(self, obj):
-        return obj.date_joined.strftime('%B %d, %Y - %I:%M:%S %p')
-    formatted_date_joined.short_description = 'Date Joined'
+    def formatted_added_at(self, obj):
+        manila_tz = pytz.timezone('Asia/Manila')
+        local_time = obj.added_at.astimezone(manila_tz)
+        return local_time.strftime('%B %d, %Y - %I:%M:%S %p')
+    formatted_added_at.short_description = 'Added At (PHT)'
     
-    fieldsets = (
-        (None, {'fields': ('username', 'email', 'password')}),
-        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
-        ('Important dates', {'fields': ('last_login', 'date_joined')}),
-    )
+    def has_add_permission(self, request):
+        return False
     
-    readonly_fields = ['date_joined', 'last_login']
-
-# Unregister default User and register custom one
-admin.site.unregister(User)
-admin.site.register(User, CustomUserAdmin)
+    def has_change_permission(self, request, obj=None):
+        return False
